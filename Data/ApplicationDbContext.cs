@@ -5,8 +5,8 @@ namespace CryptoPriceTracker.Api.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public DbSet<CryptoAsset> CryptoAssets { get; set; }
-        public DbSet<CryptoPriceHistory> CryptoPriceHistories { get; set; }
+        public DbSet<CryptoAsset> CryptoAssets { get; set; } = null!;
+        public DbSet<CryptoPriceHistory> CryptoPriceHistories { get; set; } = null!;
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options) { }
