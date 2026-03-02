@@ -22,8 +22,8 @@ public class CryptoPriceService
     private const int RetryDelayMs = 2000;
         private const int MaxConsecutiveFailures = 3;
     private const int PageSize = 250;
-    private const int MaxPages = 20; // ~5000 coins; adjust if needed. Rate limit ~30/min.
-    private const int DelayBetweenPagesMs = 2500; // Stay under ~30 calls/min.
+    private const int MaxPages = 5; // ~1250 coins; adjust if needed.
+    private const int DelayBetweenPagesMs = 1500;
 
     public CryptoPriceService(ApplicationDbContext dbContext, HttpClient httpClient)
     {
