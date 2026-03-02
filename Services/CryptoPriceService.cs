@@ -33,11 +33,11 @@ public class CryptoPriceService
 
     public async Task UpdatePricesAsync()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.UtcNow;
 
         // Get asset IDs that already have a price for today to avoid duplicate CryptoPriceHistory.
         var assetIdsWithPriceToday = await _dbContext.CryptoPriceHistories
-            .Where(p => p.Date.Date == today)
+            .Where(p => p.Date.Date == today.Date)
             .Select(p => p.CryptoAssetId)
             .Distinct()
             .ToListAsync();

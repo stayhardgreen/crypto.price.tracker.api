@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using CryptoPriceTracker.Api.Services;
 using CryptoPriceTracker.Api.Data;
 
@@ -25,33 +26,64 @@ namespace CryptoPriceTracker.Api.Controllers
         [HttpPost("update-prices")]
         public async Task<IActionResult> UpdatePrices()
         {
-            // Uncomment and call the service here
-            // await _service.UpdatePricesAsync();
+            try
+            {
+                await _service.UpdatePricesAsync();
 
-            return Ok("Prices updated."); // Optional: Replace with a real result message
+                return Ok(new
+                {
+                    message = "Prices updated successfully."
+                });
+            }
+            catch
+            {
+                // For this exercise we return a generic error; in a real app we would log details.
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    error = "Failed to update prices."
+                });
+            }
         }
 
         /// <summary>
-        /// TODO: Implement an endpoint to return the latest prices per crypto asset.
-        /// This will allow the frontend to display the most recent data saved in the database.
+        /// Returns the latest recorded price per crypto asset.
+        /// This allows the frontend to display the most recent data saved in the database.
         /// </summary>
+        /// <remarks>
+        /// Assumption: All prices are fetched in USD from CoinGecko, so we hardcode the currency to "USD".
+        /// </remarks>
         /// <returns>A list of assets and their latest recorded price</returns>
-        // [HttpGet("latest-prices")]
-        // public async Task<IActionResult> GetLatestPrices([FromServices] ApplicationDbContext db)
-        // {
-        //     // Sample logic (you can customize this query as needed):
-        //     var latest = await db.CryptoAssets
-        //         .Select(asset => new {
-        //             asset.Name,
-        //             asset.Symbol,
-        //             asset.ExternalId,
-        //             Price = asset.PriceHistory
-        //                 .OrderByDescending(p => p.Date)
-        //                 .FirstOrDefault().Price
-        //         })
-        //         .ToListAsync();
+        [HttpGet("latest-prices")]
+        [HttpGet("lastest-prices")] // Keep a second route to be resilient to potential typo usage.
+        public async Task<IActionResult> GetLatestPrices([FromServices] ApplicationDbContext db)
+        {
+            var latest = await db.CryptoAssets
+                .Select(asset => new
+                {
+                    asset.Id,
+                    asset.Name,
+                    asset.Symbol,
+                    asset.ExternalId,
+                    asset.IconUrl,
+                    LatestPrice = asset.PriceHistory
+                        .OrderByDescending(p => p.Date)
+                        .FirstOrDefault()
+                })
+                .Where(x => x.LatestPrice != null)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Name,
+                    x.Symbol,
+                    x.ExternalId,
+                    x.IconUrl,
+                    Price = x.LatestPrice!.Price,
+                    Currency = "USD",
+                    LastUpdated = x.LatestPrice.Date
+                })
+                .ToListAsync();
 
-        //     return Ok(latest);
-        // }
+            return Ok(latest);
+        }
     }
 }
