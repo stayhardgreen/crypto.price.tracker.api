@@ -96,7 +96,30 @@ This page must:
 
 ## 🧪 Testing
 
-You may add unit tests to demonstrate how you validate business logic (e.g., in the `PriceValidator` class).
+### Backend tests
+
+- **Solution structure changes**:
+  - A dedicated test project lives in `CryptoPriceTracker.Tests/` and references the main `CryptoPriceTracker.Api` project.
+  - Test source files under `Tests/` and `CryptoPriceTracker.Tests/` are excluded from the main web project build via the `.csproj` so test-only dependencies (like xUnit) are not required when running the API.
+
+- **Run all tests** from the `CryptoPriceTracker.Api` folder:
+
+  ```bash
+  dotnet test
+  ```
+
+- **Run only the main test project** explicitly:
+
+  ```bash
+  dotnet test CryptoPriceTracker.Tests/CryptoPriceTracker.Tests.csproj
+  ```
+
+### What is covered
+
+- `PriceValidator` decision logic is covered by unit tests that verify:
+  - Non-positive prices are rejected.
+  - Duplicate prices for the same asset/date are not saved.
+  - New prices or same prices on different dates are allowed.
 
 ---
 
