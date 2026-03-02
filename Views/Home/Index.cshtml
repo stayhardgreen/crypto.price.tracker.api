@@ -1,0 +1,18 @@
+@{
+    ViewData["Title"] = "Crypto Price Tracker";
+}
+
+<h1>Crypto Price Tracker</h1>
+
+<button id="updateBtn">Update Prices</button>
+<div id="statusMessage"></div>
+
+<script>
+    document.getElementById("updateBtn").addEventListener("click", async () => {
+        const response = await fetch("/api/crypto/update-prices", {
+            method: "POST"
+        });
+        const message = response.ok ? "✅ Prices updated!" : "❌ Failed to update.";
+        document.getElementById("statusMessage").innerText = message;
+    });
+</script>
