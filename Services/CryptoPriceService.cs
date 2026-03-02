@@ -1,48 +1,52 @@
-public class CryptoPriceService
-{
-    private readonly ApplicationDbContext _dbContext;
-    private readonly HttpClient _httpClient;
+using System.Text.Json;
 
-    public CryptoPriceService(ApplicationDbContext dbContext, HttpClient httpClient)
+namespace CryptoPriceTracker.Api.Services {
+    public class CryptoPriceService
     {
-        _dbContext = dbContext;
-        _httpClient = httpClient;
-    }
+        private readonly ApplicationDbContext _dbContext;
+        private readonly HttpClient _httpClient;
 
-    public async Task UpdatePricesAsync()
-    {
-        var cryptoAssets = _dbContext.CryptoAssets.ToList(); 
-        var response = await _httpClient.GetAsync("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd");
-
-        if (response.IsSuccessStatusCode)
+        public CryptoPriceService(ApplicationDbContext dbContext, HttpClient httpClient)
         {
-            var json = await response.Content.ReadAsStringAsync();
-            var prices = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json); 
+            _dbContext = dbContext;
+            _httpClient = httpClient;
+        }
 
-            foreach (var asset in cryptoAssets)
+        public async Task UpdatePricesAsync()
+        {
+            var cryptoAssets = _dbContext.CryptoAssets.ToList(); 
+            var response = await _httpClient.GetAsync("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd");
+
+            if (response.IsSuccessStatusCode)
             {
-                var today = DateTime.UtcNow;
-                var lastPrice = _dbContext.CryptoPriceHistories
-                    .Where(p => p.CryptoAssetId == asset.Id)
-                    .OrderByDescending(p => p.Date)
-                    .FirstOrDefault();
+                var json = await response.Content.ReadAsStringAsync();
+                var prices = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json); 
 
-                if (lastPrice != null && lastPrice.Date == today)
+                foreach (var asset in cryptoAssets)
                 {
-                    continue;
-                }
+                    var today = DateTime.UtcNow;
+                    var lastPrice = _dbContext.CryptoPriceHistories
+                        .Where(p => p.CryptoAssetId == asset.Id)
+                        .OrderByDescending(p => p.Date)
+                        .FirstOrDefault();
 
-                var newPrice = prices[asset.ExternalId];
-                if (newPrice > 0)
-                {
-                    var priceHistory = new CryptoPriceHistory
+                    if (lastPrice != null && lastPrice.Date == today)
                     {
-                        CryptoAssetId = asset.Id,
-                        Price = newPrice,
-                        Date = DateTime.UtcNow
-                    };
+                        continue;
+                    }
 
-                    _dbContext.CryptoPriceHistories.Add(priceHistory);
+                    var newPrice = prices[asset.ExternalId];
+                    if (newPrice > 0)
+                    {
+                        var priceHistory = new CryptoPriceHistory
+                        {
+                            CryptoAssetId = asset.Id,
+                            Price = newPrice,
+                            Date = DateTime.UtcNow
+                        };
+
+                        _dbContext.CryptoPriceHistories.Add(priceHistory);
+                    }
                 }
             }
         }
