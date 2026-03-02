@@ -3,8 +3,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews().AddNewtonsoftJson();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite("Data Source=crypto.db"));
-builder.Services.AddScoped<CryptoPriceService>();
-builder.Services.AddHttpClient();
+// Typed client ensures HttpClient is injected into CryptoPriceService.
+builder.Services.AddHttpClient<CryptoPriceService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
