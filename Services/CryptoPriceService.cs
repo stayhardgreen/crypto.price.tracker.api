@@ -20,6 +20,7 @@ public class CryptoPriceService
     private readonly HttpClient _httpClient;
     private const int MaxRetries = 3;
     private const int RetryDelayMs = 2000;
+        private const int MaxConsecutiveFailures = 3;
     private const int PageSize = 250;
     private const int MaxPages = 20; // ~5000 coins; adjust if needed. Rate limit ~30/min.
     private const int DelayBetweenPagesMs = 2500; // Stay under ~30 calls/min.
@@ -34,6 +35,7 @@ public class CryptoPriceService
     public async Task UpdatePricesAsync()
     {
         var today = DateTime.UtcNow;
+        var consecutiveFailures = 0;
 
         // Get asset IDs that already have a price for today to avoid duplicate CryptoPriceHistory.
         var assetIdsWithPriceToday = await _dbContext.CryptoPriceHistories
@@ -44,18 +46,27 @@ public class CryptoPriceService
         var excludeSet = new HashSet<int>(assetIdsWithPriceToday);
 
         // Load existing assets by ExternalId for upsert logic.
-        var existingByExternalId = await _dbContext.CryptoAssets
-            .ToDictionaryAsync(a => a.ExternalId, a => a);
+        var existingByExternalId = await _dbContext.CryptoAssets.ToDictionaryAsync(asset => asset.ExternalId, asset => asset);
 
         for (var page = 1; page <= MaxPages; page++)
         {
             var coins = await FetchMarketsPageAsync(page);
 
-            if(coins == null) {
-                await Task.Delay(15000);
-                page --;
-                continue;
-            }
+                if (coins == null)
+                {
+                    // If we repeatedly fail to talk to CoinGecko (e.g. persistent 5xx or network errors),
+                    // we stop this run instead of retrying forever to avoid hanging the background job.
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MaxConsecutiveFailures)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(DelayBetweenPagesMs * 2);
+                    continue;
+                }
+
+                consecutiveFailures = 0;
 
             if (coins.Count == 0)
                 break;
@@ -119,25 +130,45 @@ public class CryptoPriceService
     /// Handles 429 (rate limit) with exponential backoff retry.
     /// On transient failures we return null so caller can stop pagination.
     /// </summary>
-    private async Task<List<CoinGeckoMarketItem>?> FetchMarketsPageAsync(int page)
+        private async Task<List<CoinGeckoMarketItem>?> FetchMarketsPageAsync(int page)
     {
         var url = $"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&per_page={PageSize}&page={page}";
         for (var attempt = 1; attempt <= MaxRetries; attempt++)
         {
-            using var response = await _httpClient.GetAsync(url);
-            if (response.IsSuccessStatusCode)
+            try
             {
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<List<CoinGeckoMarketItem>>(json);
+                using var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    try
+                    {
+                        return JsonSerializer.Deserialize<List<CoinGeckoMarketItem>>(json);
+                    }
+                    catch (JsonException)
+                    {
+                        // If CoinGecko returns unexpected JSON we fail this run gracefully instead of crashing the app.
+                        return null;
+                    }
+                }
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < MaxRetries)
+                {
+                    var retryAfter = response.Headers.RetryAfter?.Delta;
+                    var wait = retryAfter ?? TimeSpan.FromMilliseconds(RetryDelayMs * attempt * attempt); // 2s, 8s, 18s
+                    await Task.Delay(wait);
+                    continue;
+                }
+                return null;
             }
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < MaxRetries)
+            catch (HttpRequestException)
             {
-                var retryAfter = response.Headers.RetryAfter?.Delta;
-                var wait = retryAfter ?? TimeSpan.FromMilliseconds(RetryDelayMs * attempt * attempt); // 2s, 8s, 18s
-                await Task.Delay(wait);
-                continue;
+                if (attempt == MaxRetries)
+                {
+                    return null;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(RetryDelayMs * attempt * attempt));
             }
-            return null;
         }
         return null;
     }
