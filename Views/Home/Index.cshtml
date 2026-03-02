@@ -8,11 +8,38 @@
 <div id="statusMessage"></div>
 
 <script>
-    document.getElementById("updateBtn").addEventListener("click", async () => {
-        const response = await fetch("/api/crypto/update-prices", {
-            method: "POST"
-        });
-        const message = response.ok ? "✅ Prices updated!" : "❌ Failed to update.";
-        document.getElementById("statusMessage").innerText = message;
-    });
+  const btn = document.getElementById("updateBtn");
+  const statusEl = document.getElementById("statusMessage");
+
+  function setStatus(text, type) {
+    statusEl.innerText = text;
+    statusEl.style.marginTop = "10px";
+    statusEl.style.fontWeight = "600";
+    statusEl.style.color =
+      type === "success" ? "green" :
+      type === "error" ? "red" :
+      "black";
+  }
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    setStatus("Updating prices... please wait.", "loading");
+
+    try {
+      const response = await fetch("/api/crypto/update-prices", { method: "POST" });
+
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json") ? await response.json() : await response.text();
+
+      if (response.ok) {
+        setStatus(`✅ ${data.message ?? "Prices updated successfully."}`, "success");
+      } else {
+        setStatus(`❌ ${data.error ?? data ?? "Failed to update prices."}`, "error");
+      }
+    } catch (err) {
+      setStatus(`❌ Network error: ${err.message}`, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
 </script>
