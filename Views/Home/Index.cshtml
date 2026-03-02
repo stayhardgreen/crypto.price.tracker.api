@@ -4,21 +4,494 @@
 
 <h1>Crypto Price Tracker</h1>
 
-<button id="updateBtn">Update Prices</button>
-<div id="statusMessage"></div>
+<div class="toolbar">
+    <button id="updateBtn">Update Prices</button>
+    <input id="searchInput" type="search" placeholder="Search coin name (e.g., Bitcoin)" autocomplete="off" />
+    <select id="sortSelect" aria-label="Sort coins">
+        <option value="">Sort: Name (A–Z)</option>
+        <option value="price_desc">Sort: Price (High → Low)</option>
+        <option value="price_asc">Sort: Price (Low → High)</option>
+    </select>
+    <span id="statusMessage"></span>
+</div>
+
+<div id="assetsContainer" class="assets-grid">
+    <!-- Filled by JavaScript -->
+</div>
+
+<div id="pagination" class="pagination" aria-label="Pagination" style="display:none;">
+    <!-- Filled by JavaScript -->
+</div>
+
+<style>
+    .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    #updateBtn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.2s ease;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    }
+
+    #updateBtn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+    }
+
+    #updateBtn:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+
+    #updateBtn:disabled {
+        opacity: 0.6;
+        cursor: default;
+        box-shadow: none;
+    }
+
+    #statusMessage {
+        font-weight: 600;
+        min-height: 1.2em;
+    }
+
+    #searchInput {
+        flex: 1;
+        min-width: 220px;
+        max-width: 520px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(17, 24, 39, 0.14);
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        outline: none;
+        transition: box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    #searchInput:focus {
+        border-color: rgba(37, 99, 235, 0.55);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    #sortSelect {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(17, 24, 39, 0.14);
+        background: #fff;
+        cursor: pointer;
+        font-weight: 600;
+        color: #111827;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        outline: none;
+    }
+
+    .assets-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .asset-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        cursor: pointer;
+    }
+
+    .asset-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    }
+
+    .asset-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .asset-header img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    }
+
+    .asset-name {
+        font-weight: 600;
+    }
+
+    .asset-symbol {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    .asset-main-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-top: 4px;
+    }
+
+    .asset-price {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .asset-currency {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-left: 4px;
+    }
+
+    .trend {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .trend.up {
+        color: #16a34a;
+    }
+
+    .trend.down {
+        color: #dc2626;
+    }
+
+    .trend.flat {
+        color: #6b7280;
+    }
+
+    .asset-footer {
+        font-size: 0.8rem;
+        color: #6b7280;
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2px;
+    }
+
+    .fade-in {
+        /* simple opacity transition to avoid Razor/CSS linter confusion with keyframes */
+        transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+        opacity: 1;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-top: 18px;
+        flex-wrap: wrap;
+    }
+
+    .pagination .page-btn {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(17, 24, 39, 0.15);
+        background: #fff;
+        cursor: pointer;
+        font-weight: 600;
+        color: #111827;
+        transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.08s ease;
+    }
+
+    .pagination .page-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        background: #f9fafb;
+    }
+
+    .pagination .page-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
+        box-shadow: none;
+    }
+
+    .pagination .page-btn.active {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    }
+
+    .pagination .page-ellipsis {
+        color: #6b7280;
+        font-weight: 700;
+        padding: 0 2px;
+        user-select: none;
+    }
+</style>
 
 <script>
   const btn = document.getElementById("updateBtn");
   const statusEl = document.getElementById("statusMessage");
+  const assetsContainer = document.getElementById("assetsContainer");
+  const paginationEl = document.getElementById("pagination");
+  const searchInput = document.getElementById("searchInput");
+  const sortSelect = document.getElementById("sortSelect");
+
+  let currentPage = 1;
+  const pageSize = 24;
+  let searchDebounceTimer = null;
+  let lastMeta = null;
 
   function setStatus(text, type) {
-    statusEl.innerText = text;
-    statusEl.style.marginTop = "10px";
-    statusEl.style.fontWeight = "600";
-    statusEl.style.color =
-      type === "success" ? "green" :
-      type === "error" ? "red" :
-      "black";
+    statusEl.textContent = text;
+    let color = "#111827";
+    if (type === "success") color = "#16a34a";
+    else if (type === "error") color = "#dc2626";
+    else if (type === "loading") color = "#2563eb";
+    statusEl.style.color = color;
+  }
+
+  function formatCurrency(value, currency) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currency || "USD",
+        maximumFractionDigits: 8
+      }).format(value);
+    } catch {
+      return value.toFixed(4) + " " + (currency || "USD");
+    }
+  }
+
+  function formatLocalDateTime(isoString) {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "N/A";
+    // LastUpdated is stored as UTC on the server; the Date constructor interprets it and we display it in the client's local timezone.
+    return d.toLocaleString();
+  }
+
+  function getTrendInfo(price, previousPrice, percentChange) {
+    if (previousPrice == null || previousPrice === 0 || price == null) {
+      return { css: "flat", icon: "➖", label: "No history" };
+    }
+
+    const diff = price - previousPrice;
+    const pct = typeof percentChange === "number" ? percentChange : (diff / previousPrice) * 100;
+
+    if (diff > 0) {
+      return { css: "up", icon: "🔼", label: `${pct.toFixed(2)}%` };
+    }
+    if (diff < 0) {
+      return { css: "down", icon: "🔽", label: `${pct.toFixed(2)}%` };
+    }
+    return { css: "flat", icon: "➖", label: "0.00%" };
+  }
+
+  function renderAssets(assets) {
+    assetsContainer.innerHTML = "";
+    if (!assets || assets.length === 0) {
+      const q = (searchInput.value || "").trim();
+      assetsContainer.textContent = q
+        ? `No coins match "${q}".`
+        : "No price data available yet. Click \"Update Prices\" to fetch the latest data.";
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    assets.forEach(asset => {
+      const card = document.createElement("div");
+      card.className = "asset-card fade-in";
+
+      const header = document.createElement("div");
+      header.className = "asset-header";
+
+      const img = document.createElement("img");
+      img.alt = `${asset.name} icon`;
+      img.src = asset.iconUrl || "https://via.placeholder.com/32?text=?"; // Fallback placeholder if CoinGecko has no icon
+
+      const titleWrapper = document.createElement("div");
+      const nameEl = document.createElement("div");
+      nameEl.className = "asset-name";
+      nameEl.textContent = asset.name;
+
+      const symbolEl = document.createElement("div");
+      symbolEl.className = "asset-symbol";
+      symbolEl.textContent = asset.symbol;
+
+      titleWrapper.appendChild(nameEl);
+      titleWrapper.appendChild(symbolEl);
+
+      header.appendChild(img);
+      header.appendChild(titleWrapper);
+
+      const mainRow = document.createElement("div");
+      mainRow.className = "asset-main-row";
+
+      const priceEl = document.createElement("div");
+      priceEl.className = "asset-price";
+      priceEl.innerHTML = `${formatCurrency(asset.price, asset.currency)} <span class="asset-currency">${asset.currency}</span>`;
+
+      const trendInfo = getTrendInfo(asset.price, asset.previousPrice, asset.percentChange);
+      const trendEl = document.createElement("div");
+      trendEl.className = `trend ${trendInfo.css}`;
+      trendEl.innerHTML = `<span>${trendInfo.icon}</span><span>${trendInfo.label}</span>`;
+
+      mainRow.appendChild(priceEl);
+      mainRow.appendChild(trendEl);
+
+      const footer = document.createElement("div");
+      footer.className = "asset-footer";
+
+      const lastUpdatedEl = document.createElement("span");
+      lastUpdatedEl.textContent = "Last updated: " + asset.lastUpdated;
+
+      const idEl = document.createElement("span");
+      idEl.textContent = asset.externalId;
+
+      footer.appendChild(lastUpdatedEl);
+      footer.appendChild(idEl);
+
+      card.appendChild(header);
+      card.appendChild(mainRow);
+      card.appendChild(footer);
+
+      fragment.appendChild(card);
+    });
+
+    assetsContainer.appendChild(fragment);
+  }
+
+  function buildPageSequence(page, totalPages) {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const set = new Set([1, 2, totalPages - 1, totalPages]);
+    for (let p = page - 2; p <= page + 2; p++) {
+      if (p >= 1 && p <= totalPages) set.add(p);
+    }
+
+    const pages = Array.from(set).sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < pages.length; i++) {
+      out.push(pages[i]);
+      const next = pages[i + 1];
+      if (next != null && next - pages[i] > 1) out.push("…");
+    }
+    return out;
+  }
+
+  function renderPagination(meta) {
+    if (!meta || !meta.totalPages || meta.totalPages <= 1) {
+      paginationEl.style.display = "none";
+      paginationEl.innerHTML = "";
+      return;
+    }
+
+    paginationEl.style.display = "flex";
+    paginationEl.innerHTML = "";
+
+    const makeBtn = (label, page, disabled, isActive = false) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "page-btn" + (isActive ? " active" : "");
+      b.textContent = label;
+      b.disabled = !!disabled;
+      b.addEventListener("click", () => {
+        if (page === currentPage) return;
+        currentPage = page;
+        fetchLatestPrices(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      return b;
+    };
+
+    paginationEl.appendChild(
+      makeBtn("Prev", Math.max(1, meta.page - 1), meta.page <= 1)
+    );
+
+    for (const token of buildPageSequence(meta.page, meta.totalPages)) {
+      if (token === "…") {
+        const ell = document.createElement("span");
+        ell.className = "page-ellipsis";
+        ell.textContent = "…";
+        paginationEl.appendChild(ell);
+        continue;
+      }
+      const p = token;
+      paginationEl.appendChild(makeBtn(String(p), p, false, p === meta.page));
+    }
+
+    paginationEl.appendChild(
+      makeBtn("Next", Math.min(meta.totalPages, meta.page + 1), meta.page >= meta.totalPages)
+    );
+  }
+
+  function normalizeAssets(items) {
+    return (items || []).map(x => ({
+      id: x.id,
+      name: x.name,
+      symbol: x.symbol,
+      externalId: x.externalId,
+      iconUrl: x.iconUrl,
+      price: x.price,
+      previousPrice: x.previousPrice,
+      currency: x.currency,
+      lastUpdated: new Date(x.lastUpdated).toLocaleDateString("en-US"),
+      percentChange: x.percentChange
+    }));
+  }
+
+  function getSortParams() {
+    const sort = (sortSelect.value || "").trim();
+    if (sort === "price_desc") return { sortBy: "price", sortDir: "desc" };
+    if (sort === "price_asc") return { sortBy: "price", sortDir: "asc" };
+    return { sortBy: "name", sortDir: "asc" };
+  }
+
+  async function fetchLatestPrices(showStatus = false) {
+    try {
+      if (showStatus) setStatus("Loading latest prices...", "loading");
+
+      const q = (searchInput.value || "").trim();
+      const sort = getSortParams();
+      const params = new URLSearchParams();
+      params.set("page", String(currentPage));
+      params.set("pageSize", String(pageSize));
+      params.set("sortBy", sort.sortBy);
+      params.set("sortDir", sort.sortDir);
+      if (q) params.set("search", q);
+
+      const response = await fetch(`/api/crypto/latest-prices?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to load latest prices.");
+
+      const data = await response.json();
+      const items = normalizeAssets(Array.isArray(data?.items) ? data.items : []);
+      lastMeta = {
+        page: Number(data?.page) || currentPage,
+        pageSize: Number(data?.pageSize) || pageSize,
+        totalCount: Number(data?.totalCount) || 0,
+        totalPages: Number(data?.totalPages) || 0
+      };
+      currentPage = lastMeta.page;
+
+      renderAssets(items);
+      renderPagination(lastMeta.totalPages > 0 ? { page: lastMeta.page, totalPages: lastMeta.totalPages } : null);
+      if (showStatus) setStatus("Latest prices loaded.", "success");
+    } catch (err) {
+      setStatus(err.message || "Failed to load latest prices.", "error");
+    }
   }
 
   btn.addEventListener("click", async () => {
@@ -26,20 +499,38 @@
     setStatus("Updating prices... please wait.", "loading");
 
     try {
-      const response = await fetch("/api/crypto/update-prices", { method: "POST" });
-
+      const response = await fetch(`/api/crypto/update-prices`, { method: "POST" });
       const contentType = response.headers.get("content-type") || "";
       const data = contentType.includes("application/json") ? await response.json() : await response.text();
 
-      if (response.ok) {
-        setStatus(`✅ ${data.message ?? "Prices updated successfully."}`, "success");
-      } else {
-        setStatus(`❌ ${data.error ?? data ?? "Failed to update prices."}`, "error");
+      if (!response.ok) {
+        setStatus(`${data.error ?? data ?? "Failed to update prices."}`, "error");
+        return;
       }
+
+      setStatus("Prices updated successfully.", "success");
+      currentPage = 1;
+      await fetchLatestPrices(false);
     } catch (err) {
-      setStatus(`❌ Network error: ${err.message}`, "error");
+      setStatus(`Network error: ${err.message}`, "error");
     } finally {
       btn.disabled = false;
     }
   });
+
+  searchInput.addEventListener("input", () => {
+    currentPage = 1;
+    if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = window.setTimeout(() => {
+      fetchLatestPrices(true);
+    }, 250);
+  });
+
+  sortSelect.addEventListener("change", () => {
+    currentPage = 1;
+    fetchLatestPrices(true);
+  });
+
+  // Initial load when the page is opened.
+  fetchLatestPrices(true);
 </script>
