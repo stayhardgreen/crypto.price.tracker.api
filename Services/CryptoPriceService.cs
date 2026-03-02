@@ -50,7 +50,14 @@ public class CryptoPriceService
         for (var page = 1; page <= MaxPages; page++)
         {
             var coins = await FetchMarketsPageAsync(page);
-            if (coins == null || coins.Count == 0)
+
+            if(coins == null) {
+                await Task.Delay(15000);
+                page --;
+                continue;
+            }
+
+            if (coins.Count == 0)
                 break;
 
             foreach (var coin in coins)
@@ -97,7 +104,9 @@ public class CryptoPriceService
             }
 
             if (coins.Count < PageSize)
+            {
                 break;
+            }
 
             await Task.Delay(DelayBetweenPagesMs);
         }
@@ -123,7 +132,9 @@ public class CryptoPriceService
             }
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < MaxRetries)
             {
-                await Task.Delay(RetryDelayMs * attempt);
+                var retryAfter = response.Headers.RetryAfter?.Delta;
+                var wait = retryAfter ?? TimeSpan.FromMilliseconds(RetryDelayMs * attempt * attempt); // 2s, 8s, 18s
+                await Task.Delay(wait);
                 continue;
             }
             return null;
